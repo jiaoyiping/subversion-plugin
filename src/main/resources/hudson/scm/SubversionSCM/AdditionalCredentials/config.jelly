@@ -26,9 +26,9 @@ THE SOFTWARE.
 <f:entry title="${%Realm}" field="realm">
   <f:textbox/>
 </f:entry>
-<f:entry title="${%Credentials}" field="credentialsId">
+<!--<f:entry title="${%Credentials}" field="credentialsId">
   <c:select/>
-</f:entry>
+</f:entry>-->
   <f:entry>
     <div align="right">
       <input type="button" value="${%Delete}" class="repeatable-delete" style="margin-left: 1em;" />

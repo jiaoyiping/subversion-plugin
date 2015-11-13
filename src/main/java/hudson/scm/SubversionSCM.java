@@ -373,35 +373,35 @@ public class SubversionSCM extends SCM implements Serializable {
      * Convenience constructor, especially during testing.
      */
     public SubversionSCM(String svnUrl) {
-        this(svnUrl, null, ".");
+        this(svnUrl, null,null, ".");
     }
 
     /**
      * Convenience constructor, especially during testing.
      */
     public SubversionSCM(String svnUrl, String local) {
-        this(svnUrl, null, local);
+        this(svnUrl, null,null, local);
     }
 
     /**
      * Convenience constructor, especially during testing.
      */
-    public SubversionSCM(String svnUrl, String credentialId, String local) {
-        this(new String[]{svnUrl}, new String[]{credentialId}, new String[]{local});
+    public SubversionSCM(String svnUrl, String username,String password, String local) {
+        this(new String[]{svnUrl}, username,password, new String[]{local});
     }
 
     /**
      * Convenience constructor, especially during testing.
      */
     public SubversionSCM(String[] svnUrls, String[] locals) {
-        this(svnUrls, null, locals);
+        this(svnUrls, null,null, locals);
     }
 
     /**
      * Convenience constructor, especially during testing.
      */
-    public SubversionSCM(String[] svnUrls, String[] credentialIds, String[] locals) {
-        this(ModuleLocation.parse(svnUrls, credentialIds, locals, null,null), true, false, null, null, null, null, null);
+    public SubversionSCM(String[] svnUrls, String username,String password, String[] locals) {
+        this(ModuleLocation.parse(svnUrls, username,password, locals, null,null), true, false, null, null, null, null, null);
     }
 
     /**
@@ -920,7 +920,7 @@ public class SubversionSCM extends SCM implements Serializable {
                     additionalCredentials = new ArrayList<AdditionalCredentials>();
                 }
                 for (String realm : unauthenticatedRealms) {
-                    additionalCredentials.add(new AdditionalCredentials(realm, null));
+                    additionalCredentials.add(new AdditionalCredentials(realm, null,null));
                 }
                 try {
                     listener.getLogger().println("Adding missing realms to configuration...");
@@ -2281,23 +2281,6 @@ public class SubversionSCM extends SCM implements Serializable {
             }
         }
 
-        /**
-         * @deprecated retained for API compatibility only
-         */
-        @CheckForNull
-        @Deprecated
-        public FormValidation doCheckRemote(StaplerRequest req, @AncestorInPath AbstractProject context, @QueryParameter String value, @QueryParameter String credentialsId) {
-            Jenkins instance = Jenkins.getInstance();
-            if (instance != null) {
-                ModuleLocation.DescriptorImpl d = instance.getDescriptorByType(ModuleLocation.DescriptorImpl.class);
-                if (d != null) {
-                    return d.doCheckCredentialsId(
-                            req, context, value, credentialsId);
-                }
-            }
-
-            return FormValidation.warning("Unable to check remote.");
-        }
 
         /**
          * @deprecated use {@link #checkRepositoryPath(hudson.model.Job, org.tmatesoft.svn.core.SVNURL, com.cloudbees.plugins.credentials.common.StandardCredentials)}
@@ -2470,7 +2453,8 @@ public class SubversionSCM extends SCM implements Serializable {
          */
         public FormValidation doCheckRevisionPropertiesSupported(@AncestorInPath Item context,
                                                                  @QueryParameter String value,
-                                                                 @QueryParameter String credentialsId,
+                                                                 @QueryParameter String username,
+                                                                 @QueryParameter String password,
                                                                  @QueryParameter String excludedRevprop) throws IOException, ServletException {
               String v = Util.fixNull(value).trim();
             if (v.length() == 0)
@@ -2486,7 +2470,7 @@ public class SubversionSCM extends SCM implements Serializable {
 
             try {
                 SVNURL repoURL = SVNURL.parseURIDecoded(new EnvVars(EnvVars.masterEnvVars).expand(v));
-                StandardCredentials credentials = lookupCredentials(context, credentialsId, repoURL);
+                StandardCredentials credentials = new UsernamePasswordCredentialsImpl(CredentialsScope.USER,"","",username,password);
                 SVNNodeKind node = null;
                 try {
                     node = checkRepositoryPath(context,repoURL, credentials);
@@ -2565,7 +2549,7 @@ public class SubversionSCM extends SCM implements Serializable {
             try {
                 if (getDescriptor().checkRepositoryPath(build.getParent(),
                         l.getSVNURL(),
-                        lookupCredentials(build.getParent(), l.credentialsId, l.getSVNURL())) == SVNNodeKind.NONE) {
+                        new UsernamePasswordCredentialsImpl(CredentialsScope.USER,"","",l.getUsername(),l.getPassword())) == SVNNodeKind.NONE) {
                     out.println("Location '" + l.remote + "' does not exist");
 
                     ParametersAction params = build.getAction(ParametersAction.class);
@@ -2651,10 +2635,26 @@ public class SubversionSCM extends SCM implements Serializable {
         @Exported
         public final String remote;
 
-        /**
-         * The credentials to checkout with.
-         */
-        public String credentialsId;
+
+        public String getUsername() {
+            return username;
+        }
+
+        public void setUsername(String username) {
+            this.username = username;
+        }
+
+        public String getPassword() {
+            return password;
+        }
+
+        public void setPassword(String password) {
+            this.password = password;
+        }
+
+        public String username;
+
+        public String password;
 
         /**
          * Remembers the user-given value.
@@ -2690,51 +2690,46 @@ public class SubversionSCM extends SCM implements Serializable {
          */
         @Deprecated
         public ModuleLocation(String remote, String local) {
-            this(remote, null, local, null, false);
+            this(remote, null,null, local, null, false);
         }
 
-        /**
-         * Sets the credentials identifier.
-         */
-        void setCredentialsId (final String id) {
-            credentialsId = id;
-        }
 
         /**
          * Constructor to support backwards compatibility.
          */
         @Deprecated
         public ModuleLocation(String remote, String local, String depthOption, boolean ignoreExternalsOption) {
-            this(remote,null,local,depthOption,ignoreExternalsOption);
+            this(remote,null,null,local,depthOption,ignoreExternalsOption);
         }
 
         @DataBoundConstructor
-        public ModuleLocation(String remote, String credentialsId, String local, String depthOption, boolean ignoreExternalsOption) {
+        public ModuleLocation(String remote, String username,String password , String local, String depthOption, boolean ignoreExternalsOption) {
             this.remote = Util.removeTrailingSlash(Util.fixNull(remote).trim());
-            this.credentialsId = credentialsId;
+            this.username = username;
+            this.password = password;
             this.local = fixEmptyAndTrim(local);
             this.depthOption = StringUtils.isEmpty(depthOption) ? SVNDepth.INFINITY.getName() : depthOption;
             this.ignoreExternalsOption = ignoreExternalsOption;
         }
 
         public ModuleLocation withRemote(String remote) {
-            return new ModuleLocation(remote, credentialsId, local, depthOption, ignoreExternalsOption);
+            return new ModuleLocation(remote, username,password , local, depthOption, ignoreExternalsOption);
         }
 
-        public ModuleLocation withCredentialsId(String credentialsId) {
+/*        public ModuleLocation withCredentialsId(String credentialsId) {
             return new ModuleLocation(remote, credentialsId, local, depthOption, ignoreExternalsOption);
-        }
+        }*/
 
         public ModuleLocation withLocal(String local) {
-            return new ModuleLocation(remote, credentialsId, local, depthOption, ignoreExternalsOption);
+            return new ModuleLocation(remote, username,password, local, depthOption, ignoreExternalsOption);
         }
 
         public ModuleLocation withDepthOption(String depthOption) {
-            return new ModuleLocation(remote, credentialsId, local, depthOption, ignoreExternalsOption);
+            return new ModuleLocation(remote, username,password , local, depthOption, ignoreExternalsOption);
         }
 
         public ModuleLocation withIgnoreExternalsOption(boolean ignoreExternalsOption) {
-            return new ModuleLocation(remote, credentialsId, local, depthOption, ignoreExternalsOption);
+            return new ModuleLocation(remote, username,password, local, depthOption, ignoreExternalsOption);
         }
 
         /**
@@ -2798,22 +2793,17 @@ public class SubversionSCM extends SCM implements Serializable {
         public SVNRepository openRepository(Job context, SCM scm, boolean keepConnection) throws SVNException {
             SVNURL repoURL = getSVNURL();
 
-            StandardCredentials creds = lookupCredentials(context, credentialsId, repoURL);
+            StandardCredentials creds = new UsernamePasswordCredentialsImpl(CredentialsScope.USER,"","",username,password);
             Map<String, Credentials> additional = new HashMap<String, Credentials>();
             if (creds == null) {
                 // we should add additional credentials, this looks like it's going to be an external
                 // TODO only necessary with externals, or can we always do this?
                 List<AdditionalCredentials> additionalCredentialsList = ((SubversionSCM) scm).getAdditionalCredentials();
                 for (AdditionalCredentials c : additionalCredentialsList) {
-                    String credentialsId = c.getCredentialsId();
-                    if (credentialsId != null) {
-                        StandardCredentials cred = CredentialsMatchers
-                                .firstOrNull(CredentialsProvider.lookupCredentials(StandardCredentials.class, context,
-                                        ACL.SYSTEM, Collections.<DomainRequirement>emptyList()),
-                                        CredentialsMatchers.allOf(CredentialsMatchers.withId(credentialsId),
-                                                CredentialsMatchers.anyOf(CredentialsMatchers.instanceOf(
-                                                        StandardCredentials.class), CredentialsMatchers.instanceOf(
-                                                        SSHUserPrivateKey.class))));
+                    String username = c.getUsername();
+                    String password =c.getPassword();
+                    if (username != null && password!= null) {
+                        StandardCredentials cred = new UsernamePasswordCredentialsImpl(CredentialsScope.USER,"","",username,password);
                         if (cred != null) {
                             additional.put(c.getRealm(), cred);
                         }
@@ -2927,7 +2917,7 @@ public class SubversionSCM extends SCM implements Serializable {
          * @return Output ModuleLocation expanded according to specified env vars.
          */
         public ModuleLocation getExpandedLocation(EnvVars env) {
-            return new ModuleLocation(env.expand(remote), credentialsId, env.expand(getLocalDir()), getDepthOption(),
+            return new ModuleLocation(env.expand(remote), username,password , env.expand(getLocalDir()), getDepthOption(),
                     isIgnoreExternalsOption());
         }
 
@@ -2940,10 +2930,10 @@ public class SubversionSCM extends SCM implements Serializable {
 
         @Deprecated
         public static List<ModuleLocation> parse(String[] remoteLocations, String[] localLocations, String[] depthOptions, boolean[] isIgnoreExternals) {
-            return parse(remoteLocations, null, localLocations, depthOptions, isIgnoreExternals);
+            return parse(remoteLocations, null,null, localLocations, depthOptions, isIgnoreExternals);
         }
 
-        public static List<ModuleLocation> parse(String[] remoteLocations, String[] credentialIds,
+        public static List<ModuleLocation> parse(String[] remoteLocations, String username,String password,
                                                  String[] localLocations, String[] depthOptions,
                                                  boolean[] isIgnoreExternals) {
             List<ModuleLocation> modules = new ArrayList<ModuleLocation>();
@@ -2956,8 +2946,7 @@ public class SubversionSCM extends SCM implements Serializable {
 
                     if (remoteLoc != null) {// null if skipped
                         remoteLoc = Util.removeTrailingSlash(remoteLoc.trim());
-                        modules.add(new ModuleLocation(remoteLoc,
-                                credentialIds != null && credentialIds.length > i ? credentialIds[i] : null,
+                        modules.add(new ModuleLocation(remoteLoc,username,password,
                                 Util.nullify(localLocations[i]),
                             depthOptions != null ? depthOptions[i] : null,
                             isIgnoreExternals != null && isIgnoreExternals[i]));
@@ -2994,7 +2983,7 @@ public class SubversionSCM extends SCM implements Serializable {
                 }
             }
 
-            return new ModuleLocation(returnURL, credentialsId, getLocalDir(), getDepthOption(), isIgnoreExternalsOption());
+            return new ModuleLocation(returnURL, username,password, getLocalDir(), getDepthOption(), isIgnoreExternalsOption());
         }
 
         @Extension
@@ -3062,19 +3051,19 @@ public class SubversionSCM extends SCM implements Serializable {
              * Validate the value for a remote (repository) location.
              */
             public FormValidation doCheckCredentialsId(StaplerRequest req, @AncestorInPath Item context,
-                    @QueryParameter String remote, @QueryParameter String value) {
+                    @QueryParameter String remote, @QueryParameter String username,String password) {
 
                 // Test the connection only if we have job configure permission
                 if (context == null || !context.hasPermission(Item.CONFIGURE)) {
                     return FormValidation.ok();
                 }
-                return checkCredentialsId(req, context, remote, value);
+                return checkCredentialsId(req, context, remote, username,password);
             }
 
             /**
              * Validate the value for a remote (repository) location.
              */
-            public FormValidation checkCredentialsId(StaplerRequest req, @Nonnull Item context, String remote, String value) {
+            public FormValidation checkCredentialsId(StaplerRequest req, @Nonnull Item context, String remote, String username,String password) {
                 String url = Util.fixEmptyAndTrim(remote);
                 if (url == null) {
                     return FormValidation.ok();
@@ -3096,7 +3085,7 @@ public class SubversionSCM extends SCM implements Serializable {
 
                     SVNURL repoURL = SVNURL.parseURIDecoded(urlWithoutRevision);
 
-                    StandardCredentials credentials = lookupCredentials(context, value, repoURL);
+                    StandardCredentials credentials = new UsernamePasswordCredentialsImpl(CredentialsScope.USER,"","",username,password);
                     if (descriptor().checkRepositoryPath(context, repoURL, credentials) != SVNNodeKind.NONE) {
                         // something exists; now check revision if any
 
@@ -3262,25 +3251,32 @@ public class SubversionSCM extends SCM implements Serializable {
         return null;
     }
 
-    private static StandardCredentials lookupCredentials(Item context, String credentialsId, SVNURL repoURL) {
+    /*private static StandardCredentials lookupCredentials(Item context, String credentialsId, SVNURL repoURL) {
         return credentialsId == null ? null :
                 CredentialsMatchers.firstOrNull(CredentialsProvider
                         .lookupCredentials(StandardCredentials.class, context, ACL.SYSTEM,
                                 URIRequirementBuilder.fromUri(repoURL.toString()).build()),
                         CredentialsMatchers.withId(credentialsId));
-    }
+    }*/
 
     public static class AdditionalCredentials extends AbstractDescribableImpl<AdditionalCredentials> {
         @NonNull
         private final String realm;
+
         @CheckForNull
-        private final String credentialsId;
+        private final String username;
+
+        @CheckForNull
+        private final String password;
+
+
 
         @DataBoundConstructor
-        public AdditionalCredentials(@NonNull String realm, @CheckForNull String credentialsId) {
+        public AdditionalCredentials(@NonNull String realm, @CheckForNull String username,@CheckForNull String password) {
             realm.getClass(); // throw NPE if null
             this.realm = realm;
-            this.credentialsId = credentialsId;
+            this.username = username;
+            this.password = password;
         }
 
         @NonNull
@@ -3288,10 +3284,6 @@ public class SubversionSCM extends SCM implements Serializable {
             return realm;
         }
 
-        @CheckForNull
-        public String getCredentialsId() {
-            return credentialsId;
-        }
 
         @Override
         public boolean equals(Object o) {
@@ -3307,18 +3299,22 @@ public class SubversionSCM extends SCM implements Serializable {
             if (!realm.equals(that.realm)) {
                 return false;
             }
-            if (credentialsId != null ? !credentialsId.equals(that.credentialsId) : that.credentialsId != null) {
-                return false;
-            }
-
             return true;
         }
 
         @Override
         public int hashCode() {
             int result = realm.hashCode();
-            result = 31 * result + (credentialsId != null ? credentialsId.hashCode() : 0);
+            result = 31 * result + (username != null ? (username + password).hashCode() : 0);
             return result;
+        }
+
+        public String getUsername() {
+            return username;
+        }
+
+        public String getPassword() {
+            return password;
         }
 
         @Extension

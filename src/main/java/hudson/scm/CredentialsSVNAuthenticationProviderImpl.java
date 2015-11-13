@@ -1,16 +1,14 @@
 package hudson.scm;
 
 import com.cloudbees.jenkins.plugins.sshcredentials.SSHUserPrivateKey;
-import com.cloudbees.plugins.credentials.Credentials;
-import com.cloudbees.plugins.credentials.CredentialsMatcher;
-import com.cloudbees.plugins.credentials.CredentialsMatchers;
-import com.cloudbees.plugins.credentials.CredentialsProvider;
+import com.cloudbees.plugins.credentials.*;
 import com.cloudbees.plugins.credentials.common.CertificateCredentials;
 import com.cloudbees.plugins.credentials.common.StandardCredentials;
 import com.cloudbees.plugins.credentials.common.UsernameCredentials;
 import com.cloudbees.plugins.credentials.common.UsernamePasswordCredentials;
 import com.cloudbees.plugins.credentials.domains.DomainRequirement;
 import com.cloudbees.plugins.credentials.domains.URIRequirementBuilder;
+import com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl;
 import hudson.model.Item;
 import hudson.remoting.Channel;
 import hudson.security.ACL;
@@ -108,19 +106,15 @@ public class CredentialsSVNAuthenticationProviderImpl implements ISVNAuthenticat
         if (location == null) {
             defaultCredentials = null;
         } else {
-            defaultCredentials = CredentialsMatchers
-                    .firstOrNull(CredentialsProvider.lookupCredentials(StandardCredentials.class, context,
-                            ACL.SYSTEM, URIRequirementBuilder.fromUri(location.remote).build()),
-                            CredentialsMatchers.allOf(idMatcher(location.credentialsId),MATCHER));
+            defaultCredentials = new UsernamePasswordCredentialsImpl(CredentialsScope.USER,"","",location.username,location.password);
         }
         Map<String, Credentials> additional = new HashMap<String, Credentials>();
         if (scm != null) {
             for (SubversionSCM.AdditionalCredentials c : scm.getAdditionalCredentials()) {
-                if (c.getCredentialsId() != null) {
-                    StandardCredentials cred = CredentialsMatchers
-                            .firstOrNull(CredentialsProvider.lookupCredentials(StandardCredentials.class, context,
-                                    ACL.SYSTEM, Collections.<DomainRequirement>emptyList()),
-                                    CredentialsMatchers.allOf(idMatcher(c.getCredentialsId()),MATCHER));
+                String username = c.getUsername();
+                String password = c.getPassword();
+                if (username != null && password != null) {
+                    StandardCredentials cred = new UsernamePasswordCredentialsImpl(CredentialsScope.USER,"","",c.getUsername(),c.getPassword());
                     if (cred != null) {
                         additional.put(c.getRealm(), cred);
                     }

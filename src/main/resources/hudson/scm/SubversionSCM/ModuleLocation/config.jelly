@@ -36,9 +36,17 @@ THE SOFTWARE.
             r=null;
     }"/>
   </f:entry>
-  <f:entry title="${%Credentials}" field="credentialsId">
+  <!--<f:entry title="${%Credentials}" field="credentialsId">
     <c:select />
-  </f:entry>
+  </f:entry>-->
+    <f:entry title="${%Username}" field="username">
+        <f:textbox />
+    </f:entry>
+
+    <f:entry title="${%Password}" field="password">
+        <f:password />
+    </f:entry>
+
   <f:entry title="${%Local module directory}" field="local">
     <f:textbox value="${instance!=null?instance.local:'.'}"/>
   </f:entry>

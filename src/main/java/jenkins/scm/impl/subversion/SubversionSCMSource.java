@@ -24,16 +24,14 @@
 package jenkins.scm.impl.subversion;
 
 import com.cloudbees.jenkins.plugins.sshcredentials.SSHUserPrivateKey;
-import com.cloudbees.plugins.credentials.Credentials;
-import com.cloudbees.plugins.credentials.CredentialsMatchers;
-import com.cloudbees.plugins.credentials.CredentialsNameProvider;
-import com.cloudbees.plugins.credentials.CredentialsProvider;
+import com.cloudbees.plugins.credentials.*;
 import com.cloudbees.plugins.credentials.common.StandardCertificateCredentials;
 import com.cloudbees.plugins.credentials.common.StandardCredentials;
 import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
 import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
 import com.cloudbees.plugins.credentials.domains.DomainRequirement;
 import com.cloudbees.plugins.credentials.domains.URIRequirementBuilder;
+import com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.EnvVars;
@@ -124,7 +122,11 @@ public class SubversionSCMSource extends SCMSource {
 
     private final String remoteBase;
 
-    private final String credentialsId;
+    //private final String credentialsId;
+
+    private final String username;
+
+    private final String password;
 
     private final String includes;
 
@@ -135,23 +137,16 @@ public class SubversionSCMSource extends SCMSource {
 
     @DataBoundConstructor
     @SuppressWarnings("unused") // by stapler
-    public SubversionSCMSource(String id, String remoteBase, String credentialsId, String includes, String excludes) {
+    public SubversionSCMSource(String id, String remoteBase, String username,String password , String includes, String excludes) {
         super(id);
         this.remoteBase = StringUtils.removeEnd(remoteBase, "/") + "/";
-        this.credentialsId = credentialsId;
+        this.username = username;
+        this.password = password;
         this.includes = StringUtils.defaultIfEmpty(includes, DEFAULT_INCLUDES);
         this.excludes = StringUtils.defaultIfEmpty(excludes, DEFAULT_EXCLUDES);
     }
 
-    /**
-     * Gets the credentials id.
-     *
-     * @return the credentials id.
-     */
-    @SuppressWarnings("unused") // by stapler
-    public String getCredentialsId() {
-        return credentialsId;
-    }
+
 
     /**
      * Gets the comma separated list of exclusions.
@@ -263,12 +258,7 @@ public class SubversionSCMSource extends SCMSource {
     }
 
     private SVNRepositoryView openSession(SVNURL repoURL) throws SVNException {
-        return new SVNRepositoryView(repoURL, credentialsId == null ? null : CredentialsMatchers
-                .firstOrNull(CredentialsProvider.lookupCredentials(StandardCredentials.class, getOwner(),
-                        ACL.SYSTEM, URIRequirementBuilder.fromUri(repoURL.toString()).build()),
-                        CredentialsMatchers.allOf(CredentialsMatchers.withId(credentialsId),
-                                CredentialsMatchers.anyOf(CredentialsMatchers.instanceOf(StandardCredentials.class),
-                                        CredentialsMatchers.instanceOf(SSHUserPrivateKey.class)))));
+        return new SVNRepositoryView(repoURL, new UsernamePasswordCredentialsImpl(CredentialsScope.USER,"","",username,password));
     }
 
     void fetch(@NonNull TaskListener listener,
@@ -620,7 +610,15 @@ public class SubversionSCMSource extends SCMSource {
             // name contains an @ so need to ensure there is an @ at the end of the name
             remote.append('@');
         }
-        return new SubversionSCM(remote.toString(), credentialsId, ".");
+        return new SubversionSCM(remote.toString(), username,password , ".");
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public String getPassword() {
+        return password;
     }
 
     /**
